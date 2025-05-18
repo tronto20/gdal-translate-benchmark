@@ -89,7 +89,7 @@ tasks.bootBuildImage {
     }
 }
 
-tasks.register("dockerLogin", Exec::class.java) {
+val dockerLoginTask = tasks.register("dockerLogin", Exec::class.java) {
     this.enabled = publishRegisterUsername.isNullOrBlank()
     val url = runImageName.substringBefore('/')
 
@@ -108,6 +108,7 @@ tasks.register("dockerLogin", Exec::class.java) {
 
 tasks.register("buildMultiArchImage", Exec::class.java) {
     dependsOn(tasks.bootJar)
+    dependsOn(dockerLoginTask)
     this.group = "build"
     workingDir = rootProject.projectDir.resolve("src/main/docker/application")
     doFirst {
