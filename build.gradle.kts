@@ -90,7 +90,7 @@ tasks.bootBuildImage {
 }
 
 val dockerLoginTask = tasks.register("dockerLogin", Exec::class.java) {
-    this.enabled = publishRegisterUsername.isNullOrBlank()
+    this.enabled = !publishRegisterUsername.isNullOrBlank()
     val url = runImageName.substringBefore('/')
 
     executable = "docker"
