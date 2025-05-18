@@ -1,0 +1,13 @@
+spring:
+  main:
+    banner-mode: off
+  application:
+    name: gdal-benchmark
+
+benchmark:
+  compressions: deflate, lzw, zstd, deflate-p2, deflate-p3, lzw-p2, lzw-p3, zstd-p2, zstd-p3, jxl
+  files:
+    - data
+  result-path: results
+  tmp-file-path: tmp
+  run-times: 1
