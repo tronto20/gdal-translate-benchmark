@@ -93,17 +93,9 @@ val dockerLoginTask = tasks.register("dockerLogin", Exec::class.java) {
     this.enabled = !publishRegisterUsername.isNullOrBlank()
     val url = runImageName.substringBefore('/')
 
-    executable = "docker"
-    setArgs(
-        listOf(
-            "login",
-            url,
-            "-u",
-            publishRegisterUsername ?: "",
-            "-p",
-            publishRegisterPassword ?: ""
-        )
-    )
+    environment("GRADLE_DOCKER_PASSWORD", publishRegisterPassword ?: "")
+    executable = "sh"
+    args("-c", "echo \$GRADLE_DOCKER_PASSWORD | docker login $url --username $publishRegisterUsername --password-stdin")
 }
 
 tasks.register("buildMultiArchImage", Exec::class.java) {
