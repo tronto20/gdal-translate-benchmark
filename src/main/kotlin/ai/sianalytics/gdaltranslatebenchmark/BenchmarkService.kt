@@ -11,26 +11,12 @@ import org.gdal.gdal.TranslateOptions
 import org.gdal.gdal.gdal
 import org.gdal.gdalconst.gdalconst
 import org.slf4j.LoggerFactory
-import org.springframework.boot.SpringApplication
-import org.springframework.context.ApplicationContext
 import org.springframework.stereotype.Service
 import oshi.SystemInfo
 import java.nio.file.Path
 import java.nio.file.StandardOpenOption
-import java.util.UUID
-import java.util.Vector
-import kotlin.io.path.Path
-import kotlin.io.path.absolute
-import kotlin.io.path.createDirectories
-import kotlin.io.path.createFile
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.fileSize
-import kotlin.io.path.isRegularFile
-import kotlin.io.path.name
-import kotlin.io.path.nameWithoutExtension
-import kotlin.io.path.notExists
-import kotlin.io.path.walk
-import kotlin.io.path.writeText
+import java.util.*
+import kotlin.io.path.*
 import kotlin.time.Duration
 import kotlin.time.measureTime
 
@@ -47,12 +33,14 @@ class BenchmarkService(
         this.hasHeaderRecord = true
     }
 
+    private fun Dataset.nbit() = GetRasterBand(1)
+        .GetMetadataItem("NBITS", "IMAGE_STRUCTURE").ifBlank { null }?.toInt()
     private fun dataType(dataset: Dataset) = when (dataset.GetRasterBand(1).dataType) {
         gdalconst.GDT_Byte -> "Byte"
-        gdalconst.GDT_Int16 -> "Int16"
-        gdalconst.GDT_UInt16 -> "UInt16"
-        gdalconst.GDT_Int32 -> "Int32"
-        gdalconst.GDT_UInt32 -> "UInt32"
+        gdalconst.GDT_Int16 -> dataset.nbit()?.let { "Int$it" } ?: "Int16"
+        gdalconst.GDT_UInt16 -> dataset.nbit()?.let { "UInt$it" } ?: "UInt16"
+        gdalconst.GDT_Int32 -> dataset.nbit()?.let { "Int$it" } ?: "Int32"
+        gdalconst.GDT_UInt32 -> dataset.nbit()?.let { "UInt$it" } ?: "UInt32"
         gdalconst.GDT_Float32 -> "Float32"
         gdalconst.GDT_Float64 -> "Float64"
         else -> "Unknown"
