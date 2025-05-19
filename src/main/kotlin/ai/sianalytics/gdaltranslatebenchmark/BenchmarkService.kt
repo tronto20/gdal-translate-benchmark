@@ -87,6 +87,7 @@ class BenchmarkService(
                     dataset.GetRasterYSize(),
                     targetFileSize,
                     dataType(dataset),
+                    dataset.GetRasterCount()
                 )
             } finally {
                 dataset.Close()

@@ -14,5 +14,6 @@ data class Scene(
     @SerialName("GTIFF file size (bytes)")
     val fileSize: Long,
     val dataType: String,
+    val bandCount: Int
 )
 
