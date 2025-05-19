@@ -34,7 +34,7 @@ class BenchmarkService(
     }
 
     private fun Dataset.nbit() = GetRasterBand(1)
-        .GetMetadataItem("NBITS", "IMAGE_STRUCTURE").ifBlank { null }?.toInt()
+        .GetMetadataItem("NBITS", "IMAGE_STRUCTURE")?.ifBlank { null }?.toInt()
     private fun dataType(dataset: Dataset) = when (dataset.GetRasterBand(1).dataType) {
         gdalconst.GDT_Byte -> "Byte"
         gdalconst.GDT_Int16 -> dataset.nbit()?.let { "Int$it" } ?: "Int16"
