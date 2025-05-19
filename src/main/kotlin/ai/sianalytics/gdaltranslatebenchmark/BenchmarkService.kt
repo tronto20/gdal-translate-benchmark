@@ -149,6 +149,7 @@ class BenchmarkService(
                 testPath.absolute().startsWith(mountPath)
             }
         }
+        val gdalVersion = gdal.VersionInfo("RELEASE_NAME")
         val arch = System.getProperty("os.arch").lowercase()
             .replace("x86_64", "amd64")
             .replace("aarch64", "arm64")
@@ -160,7 +161,8 @@ class BenchmarkService(
             "${processorIdentifier.name} by ${processorIdentifier.vendor}",
             totalProcessorCount,
             efficiencyProcessorCount,
-            disk?.model ?: "unknown"
+            disk?.model ?: "unknown",
+            gdalVersion
         )
 
     }
