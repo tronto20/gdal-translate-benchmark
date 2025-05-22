@@ -192,13 +192,12 @@ class BenchmarkService(
             "BIGTIFF=YES"
         )
         compressionOptions.drop(1).forEach {
-            if (it.startsWith("P") && it.length == 2) {
-                val choosePredictor = it[1].digitToIntOrNull() ?: return null
+            if (it.startsWith("P")) {
                 options.add("-co")
-                options.add("PREDICTOR=$choosePredictor")
+                options.add("PREDICTOR=${it.drop(1)}")
             }
-            if (it.startsWith("L") && it.length == 2) {
-                val level = it[1].digitToIntOrNull() ?: return null
+            if (it.startsWith("L")) {
+                val level = it.drop(1)
                 options.add("-co")
                 if (method == "JXL") {
                     options.add("JXL_EFFORT=$level")

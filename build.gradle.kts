@@ -77,13 +77,13 @@ tasks.bootBuildImage {
     this.publish.set(dockerPublish)
 
     docker {
-        publishRegistry {
-            this.url.set(runImageName.substringBefore('/'))
-            if (!publishRegisterUsername.isNullOrBlank()) {
+        if (!publishRegisterUsername.isNullOrBlank()) {
+            publishRegistry {
+                this.url.set(runImageName.substringBefore('/'))
                 username.set(publishRegisterUsername)
-            }
-            if (!publishRegisterPassword.isNullOrBlank()) {
-                password.set(publishRegisterPassword)
+                if (!publishRegisterPassword.isNullOrBlank()) {
+                    password.set(publishRegisterPassword)
+                }
             }
         }
     }
