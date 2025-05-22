@@ -35,6 +35,7 @@ class BenchmarkService(
 
     private fun Dataset.nbit() = GetRasterBand(1)
         .GetMetadataItem("NBITS", "IMAGE_STRUCTURE")?.ifBlank { null }?.toInt()
+
     private fun dataType(dataset: Dataset) = when (dataset.GetRasterBand(1).dataType) {
         gdalconst.GDT_Byte -> "Byte"
         gdalconst.GDT_Int16 -> dataset.nbit()?.let { "Int$it" } ?: "Int16"
@@ -66,7 +67,7 @@ class BenchmarkService(
         val sceneToRecords = paths.mapIndexedNotNull { idx, path ->
             val dataset = gdal.Open(path.toString()) ?: return@mapIndexedNotNull null
 
-            val targetPath = createNoneCompressionGTiff(dataset, path)
+            val targetPath = createTargetGTiff(dataset, path)
             val scene = try {
                 val targetFileSize = targetPath.fileSize()
                 Scene(
@@ -119,16 +120,20 @@ class BenchmarkService(
     }
 
     private fun findAllRasterFiles(): List<Path> {
+        val extensionFilter = properties.extensions.map { it.uppercase() }
         val paths = properties.files.flatMap {
-            Path(it).walk().toList().filter { it.isRegularFile() }.filter {
-                val dataset = gdal.Open(it.toString())
-                if (dataset == null) {
-                    false
-                } else {
-                    dataset.Close()
-                    true
+            Path(it).walk().toList()
+                .filter { it.isRegularFile() }
+                .filter { it.extension.uppercase() in extensionFilter || extensionFilter.isEmpty() }
+                .filter {
+                    val dataset = gdal.Open(it.toString())
+                    if (dataset == null) {
+                        false
+                    } else {
+                        dataset.Close()
+                        true
+                    }
                 }
-            }
         }
         return paths
     }
@@ -141,7 +146,7 @@ class BenchmarkService(
         val processorIdentifier = processor.processorIdentifier
         val physicalProcessors = processor.physicalProcessors
         val totalProcessorCount = physicalProcessors.size
-        val efficiencyProcessorCount = physicalProcessors.sumOf { it.efficiency }
+        val efficiencyProcessorCount = physicalProcessors.count { it.efficiency > 0 }
 
         val disk = systemInfo.hardware.diskStores.find {
             it.partitions.any { partition ->
@@ -206,13 +211,13 @@ class BenchmarkService(
                 }
             }
         }
-        val destPath = testPath.resolve("${targetPath.nameWithoutExtension}_$method.tiff")
-        val returnPath = testPath.resolve("${targetPath.nameWithoutExtension}_decompress.tiff")
+        val compressPath = testPath.resolve("${targetPath.nameWithoutExtension}_$compression.tiff")
+        val decompressPath = testPath.resolve("${targetPath.nameWithoutExtension}_${compression}_decompress.tiff")
         try {
-            val encodingTime = measureCompressTime(destPath, dataset, options)
-            val decompressingTime = measureDecompressTime(destPath, returnPath)
+            val encodingTime = measureCompressTime(compressPath, dataset, options)
+            val decompressingTime = measureDecompressTime(compressPath, decompressPath)
 
-            val compressedFileSize = destPath.fileSize()
+            val compressedFileSize = compressPath.fileSize()
             logger.info("finished ${sceneName} $compression")
             return Record(
                 "${sceneName}-${compression}-${runId}",
@@ -243,8 +248,8 @@ class BenchmarkService(
 
         } finally {
             dataset.Close()
-            destPath.deleteIfExists()
-            returnPath.deleteIfExists()
+            compressPath.deleteIfExists()
+            decompressPath.deleteIfExists()
         }
     }
 
@@ -270,29 +275,32 @@ class BenchmarkService(
         return encodingTime
     }
 
+    private fun createNonCompressGTiff(dataset: Dataset, resultPath: Path): Dataset? {
+        return gdal.Translate(
+            resultPath.toString(),
+            dataset,
+            TranslateOptions(Vector(listOf("-co", "COMPRESS=NONE", "-of", "GTiff", "-co", "BIGTIFF=YES")))
+        )
+    }
+
     private fun measureDecompressTime(destPath: Path, returnPath: Path): Duration {
-        val destDs = gdal.Open(destPath.toString())
-        val decompressingTime = measureTime {
-            gdal.Translate(
-                returnPath.toString(),
-                destDs,
-                TranslateOptions(Vector(listOf("-q")))
-            )?.Close()
+        val compressedDataset = gdal.Open(destPath.toString())
+        val decompressingTime = try {
+            measureTime {
+                createNonCompressGTiff(compressedDataset, resultPath = returnPath)?.Close()
+            }
+        } finally {
+            compressedDataset.Close()
         }
-        destDs.Close()
         return decompressingTime
     }
 
-    private fun createNoneCompressionGTiff(dataset: Dataset, path: Path): Path {
+    private fun createTargetGTiff(dataset: Dataset, path: Path): Path {
         val targetPath = if (dataset.GetDriver().shortName != "GTiff" || dataset.GetMetadataItem("COMPRESSION")
                 ?.lowercase() != "none"
         ) {
             val newPath = testPath.resolve("${path.nameWithoutExtension}_none.tiff")
-            gdal.Translate(
-                newPath.toString(),
-                dataset,
-                TranslateOptions(Vector(listOf("-co", "COMPRESS=NONE", "-of", "GTiff", "-co", "BIGTIFF=YES")))
-            )?.Close()
+            createNonCompressGTiff(dataset, newPath)?.Close()
             newPath.toFile().deleteOnExit()
             newPath
         } else {
