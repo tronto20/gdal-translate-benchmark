@@ -123,6 +123,10 @@ tasks.register("buildMultiArchImage", Exec::class.java) {
 
 }
 
+tasks.register("buildImage") {
+    dependsOn(tasks.bootBuildImage)
+}
+
 tasks.register("run") {
     this.group = "application"
     dependsOn(tasks.bootRun)
