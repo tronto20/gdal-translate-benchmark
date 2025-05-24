@@ -8,7 +8,13 @@ import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.nio.file.Path
 import java.util.*
-import kotlin.io.path.*
+import kotlin.io.path.Path
+import kotlin.io.path.extension
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.notExists
+import kotlin.io.path.walk
+import kotlin.streams.asStream
+import kotlin.time.measureTimedValue
 
 @Service
 class BenchmarkService(
@@ -21,28 +27,43 @@ class BenchmarkService(
     private fun findAllRasterFiles(): List<Path> {
         val extensionFilter = properties.extensions.map { it.uppercase() }
         val paths = properties.files.flatMap {
-            Path(it).walk().toList()
+            Path(it).walk().asStream().parallel()
                 .filter { it.isRegularFile() }
                 .filter { it.extension.uppercase() in extensionFilter || extensionFilter.isEmpty() }
                 .filter {
-                    val dataset = gdal.Open(it.toString())
-                    if (dataset == null) {
+                    try {
+                        val dataset = gdal.Open(it.toString())
+                        if (dataset == null) {
+                            false
+                        } else {
+                            dataset.Close()
+                            true
+                        }
+                    } catch (e: RuntimeException) {
                         false
-                    } else {
-                        dataset.Close()
-                        true
                     }
-                }
+                }.toList()
         }
         return paths
     }
+
     private fun doTest() {
         gdal.AllRegister()
         gdal.SetConfigOption("GDAL_NUM_THREADS", "ALL_CPUS")
         gdal.UseExceptions()
         val runId = properties.runId ?: UUID.randomUUID().toString()
-        val sceneFiles = findAllRasterFiles()
-        logger.info("Running benchmark for {} files with {} compressions with runId {}", sceneFiles.size, compressions.size, runId)
+        val sceneFilesTimedValue = measureTimedValue {
+            findAllRasterFiles()
+        }
+        val sceneFiles = sceneFilesTimedValue.value
+
+        logger.info(
+            "Running benchmark for {} files with {} compressions with runId {} (took {})",
+            sceneFiles.size,
+            compressions.size,
+            runId,
+            sceneFilesTimedValue.duration,
+        )
         val benchmarkRunner = BenchmarkRunner(properties.tmpFilePath, properties.resultPath, runId, compressions)
         benchmarkRunner.runTest(sceneFiles)
     }

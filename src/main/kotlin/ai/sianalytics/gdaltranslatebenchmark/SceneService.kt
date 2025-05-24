@@ -14,7 +14,7 @@ class SceneService(
     val resultDir: Path,
     val testDir: Path,
 ) {
-
+    private val logger = org.slf4j.LoggerFactory.getLogger(javaClass)
     private val csvWithHeader = Csv {
         this.hasHeaderRecord = true
     }
@@ -76,7 +76,12 @@ class SceneService(
     fun normalize(name: String, scenePath: Path): Pair<Scene, Path>? {
         val dataset = gdal.Open(scenePath.toString()) ?: return null
 
-        val targetPath = createTargetGTiff(dataset, scenePath)
+        val targetPath = try {
+            createTargetGTiff(dataset, scenePath)
+        } catch (e: GdalException) {
+            logger.warn("failed to create target GTiff for $name")
+            return null
+        }
         return try {
             val targetFileSize = targetPath.fileSize()
             Scene(

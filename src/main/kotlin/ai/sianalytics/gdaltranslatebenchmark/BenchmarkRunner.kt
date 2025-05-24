@@ -94,11 +94,25 @@ class BenchmarkRunner(
         files.filterNot { it.nameWithoutExtension in alreadySaved }
             .forEachIndexed { idx, it ->
                 val (scene, targetPath) = sceneService.normalize(it.nameWithoutExtension, it)
-                    ?: return@forEachIndexed
+                    ?: run {
+                        logger.info("Processed {}/{} files (skip)", idx + 1, files.size)
+                        return@forEachIndexed
+                    }
 
 
-                val records = compressions.mapNotNull { compression ->
-                    recordService.benchmark(scene, targetPath, compression)
+                val records = compressions.mapIndexedNotNull { idx, compression ->
+                    val record = recordService.benchmark(scene, targetPath, compression)
+                    val state = if (record == null) {
+                        "skip"
+                    } else if (record.failed) {
+                        "fail"
+                    } else {
+                        "success"
+                    }
+                    val log =
+                        "Processed ${idx + 1}/${compressions.size} benchmarks for ${scene.name} (${state} ${compression})"
+                    logger.info(log)
+                    record
                 }
 
                 records.forEach { record ->
@@ -106,7 +120,7 @@ class BenchmarkRunner(
                 }
 
                 sceneService.saveResult(scene)
-                logger.info("Processed {}/{} files (runId: {})", idx + 1, files.size, runId)
+                logger.info("Processed {}/{} files (success)", idx + 1, files.size)
             }
         logger.info("Finished processing (runId: {})", runId)
     }
