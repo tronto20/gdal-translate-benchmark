@@ -7,14 +7,17 @@ You can run the benchmark tool either with Gradle or Docker.
 ### Quick Start
 
 - **With Gradle** (requires local GDAL JNI):
-  ```shell
+```shell
   gradle run
-  ```
+```
 
 - **With Docker**:
-  ```shell
-  docker run --rm -v ${data}:/workspace/data -v ${result}:/workspace/results ghcr.io/tronto20/gdal-translate-benchmark:0.1.3
-  ```
+```shell
+  docker run --rm \
+  -v data:/workspace/data \
+  -v result:/workspace/results \
+  ghcr.io/tronto20/gdal-translate-benchmark:0.1.3
+```
 
 ## results
 
