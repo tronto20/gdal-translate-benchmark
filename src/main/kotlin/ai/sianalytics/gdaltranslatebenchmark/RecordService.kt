@@ -2,6 +2,7 @@ package ai.sianalytics.gdaltranslatebenchmark
 
 import ai.sianalytics.gdaltranslatebenchmark.data.Record
 import ai.sianalytics.gdaltranslatebenchmark.data.Scene
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.csv.Csv
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -49,8 +50,8 @@ class RecordService(
     fun initRecordResults() {
         if (recordResultPath.exists()) {
             try {
-                csvWithHeader.decodeFromString(recordResultPath.readText())
-            } catch (e: IllegalStateException) {
+                csvWithHeader.decodeFromString<List<Record>>(recordResultPath.readText())
+            } catch (e: SerializationException) {
                 recordResultPath.deleteIfExists()
                 createEmptyResultFile()
             }

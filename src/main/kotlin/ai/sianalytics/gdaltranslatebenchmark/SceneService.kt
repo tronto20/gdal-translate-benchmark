@@ -1,6 +1,7 @@
 package ai.sianalytics.gdaltranslatebenchmark
 
 import ai.sianalytics.gdaltranslatebenchmark.data.Scene
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.csv.Csv
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -61,7 +62,7 @@ class SceneService(
         return if (sceneResultPath.exists()) {
             try {
                 csvWithHeader.decodeFromString<List<Scene>>(sceneResultPath.readText())
-            } catch (e: IllegalStateException) {
+            } catch (e: SerializationException) {
                 sceneResultPath.deleteIfExists()
                 createEmptySceneResultFile()
                 emptyList<Scene>()
