@@ -195,7 +195,6 @@ class RecordService(
         running = false
         thread.join(CPU_COLLECT_DELAY * 2)
         val usages = cpuUsages
-        println(usages)
         return CpuUsageWithValue(
             result,
             usages.average(),
