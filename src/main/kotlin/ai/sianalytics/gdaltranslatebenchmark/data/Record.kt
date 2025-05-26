@@ -19,6 +19,10 @@ data class Record(
     val decodingTime: Long?,
     @SerialName("Encoding Time (ms)")
     val encodingTime: Long?,
-    val failMessage: String?
+    val failMessage: String?,
+    val compressCpuUsage: Double?,
+    val decompressCpuUsage: Double?,
+    val compressCpuFullLoad: Double?,
+    val decompressCpuFullLoad: Double?
 )
 

@@ -87,9 +87,11 @@ class BenchmarkRunner(
      */
     fun runTest(files: List<Path>) {
         writeSystemData()
+        logger.info("Starting processing (runId: {})", runId)
         val alreadySaved = sceneService.initializeSceneResults().map { it.name }.toSet()
-
+        logger.info("Found {} already processed files", alreadySaved.size)
         recordService.initRecordResults()
+        logger.info("Initialized record results")
 
         files.filterNot { it.nameWithoutExtension in alreadySaved }
             .forEachIndexed { idx, it ->

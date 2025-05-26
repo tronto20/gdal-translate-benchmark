@@ -12,5 +12,5 @@ data class SystemData(
     val core: Int,
     val efficiencyCore: Int,
     val diskModel: String,
-    val gdalVersion: String
+    val gdalVersion: String,
 )

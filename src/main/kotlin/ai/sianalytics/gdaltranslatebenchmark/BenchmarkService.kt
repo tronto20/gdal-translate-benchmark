@@ -81,8 +81,11 @@ class BenchmarkService(
     }
 }
 
+private val translateLogger = LoggerFactory.getLogger("translate")
+
 fun translate(dataset: Dataset, resultPath: Path, options: List<String>): Dataset? {
     val result = try {
+        translateLogger.info("translating with options {}", options)
         gdal.Translate(
             resultPath.toString(),
             dataset,

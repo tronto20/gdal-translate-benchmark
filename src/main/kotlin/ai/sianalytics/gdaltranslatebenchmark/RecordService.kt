@@ -7,11 +7,11 @@ import kotlinx.serialization.csv.Csv
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import org.gdal.gdal.Dataset
-import org.gdal.gdal.TranslateOptions
 import org.gdal.gdal.gdal
 import org.slf4j.LoggerFactory
+import oshi.SystemInfo
+import oshi.hardware.CentralProcessor
 import java.nio.file.Path
-import java.util.Vector
 import kotlin.io.path.appendLines
 import kotlin.io.path.createFile
 import kotlin.io.path.createParentDirectories
@@ -19,7 +19,6 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.exists
 import kotlin.io.path.fileSize
 import kotlin.io.path.nameWithoutExtension
-import kotlin.io.path.notExists
 import kotlin.io.path.readText
 import kotlin.io.path.writeLines
 import kotlin.time.Duration
@@ -40,10 +39,12 @@ class RecordService(
 
     private fun createEmptyResultFile() {
         recordResultPath.createParentDirectories().createFile()
-            .writeLines(listOf(
-                csvWithHeader.encodeToString(
-                    listOf<Record>(Record("", "", "", false, "", null, null, null, null))
-                ).lines().first())
+            .writeLines(
+                listOf(
+                    csvWithHeader.encodeToString(
+                        listOf<Record>(Record("", "", "", false, "", null, null, null, null, null, null, null, null))
+                    ).lines().first()
+                )
             )
     }
 
@@ -61,6 +62,7 @@ class RecordService(
     }
 
     fun benchmark(scene: Scene, targetPath: Path, compression: String): Record? {
+        logger.info("start ${scene.name} $compression")
         val compressionOptions = addCompressionOptions(compression)
         val options = listOf(
             "-of",
@@ -74,8 +76,8 @@ class RecordService(
         val compressPath = testDir.resolve("${targetPath.nameWithoutExtension}_$compression.tiff")
         val decompressPath = testDir.resolve("${targetPath.nameWithoutExtension}_${compression}_decompress.tiff")
         try {
-            val encodingTime = measureCompressTime(compressPath, dataset, options)
-            val decompressingTime = measureDecompressTime(compressPath, decompressPath)
+            val compressResult = measureCompress(compressPath, dataset, options)
+            val decompressingResult = measureDecompressTime(compressPath, decompressPath)
 
             val compressedFileSize = compressPath.fileSize()
             logger.info("finished ${scene.name} $compression")
@@ -86,9 +88,13 @@ class RecordService(
                 false,
                 runId,
                 compressedFileSize,
-                decompressingTime.inWholeMilliseconds,
-                encodingTime.inWholeMilliseconds,
-                null
+                decompressingResult.value.inWholeMilliseconds,
+                compressResult.value.inWholeMilliseconds,
+                null,
+                compressResult.cpuUsage,
+                decompressingResult.cpuUsage,
+                compressResult.cpuFullLoad,
+                decompressingResult.cpuFullLoad
             )
 
         } catch (e: GdalException) {
@@ -103,7 +109,11 @@ class RecordService(
                 null,
                 null,
                 null,
-                lastErrorMessage
+                lastErrorMessage,
+                null,
+                null,
+                null,
+                null
             )
         } finally {
             dataset.Close()
@@ -143,27 +153,78 @@ class RecordService(
         return options
     }
 
+    data class CpuUsageWithValue<T>(
+        val value: T,
+        val cpuUsage: Double,
+        val cpuFullLoad: Double
+    )
 
-    private fun measureCompressTime(
+    companion object {
+        private const val CPU_COLLECT_DELAY = 500L
+        private const val CPU_FULL_LOAD_THRESHOLD = 0.9
+    }
+    private val processor = SystemInfo().hardware.processor
+    private fun <T> measureCpuUsage(block: () -> T): CpuUsageWithValue<T> {
+        val cpuUsages = mutableListOf<Double>()
+        var running = true
+        val thread = Thread({
+            var prevTotal : Long? = null
+            var prevIdle: Long? = null
+            while (running) {
+                val loads = processor.processorCpuLoadTicks
+                val total = loads.sumOf { it.sum() }
+                val idle = loads.sumOf { it[CentralProcessor.TickType.IDLE.index] + it[CentralProcessor.TickType.IOWAIT.index] }
+                if (prevTotal != null && prevIdle != null) {
+                    val idleDiff = idle - prevIdle
+                    val totalDiff = total - prevTotal
+                    val load = (totalDiff - idleDiff).toDouble() / totalDiff
+                    cpuUsages.add(load)
+                }
+
+                prevTotal = total
+                prevIdle = idle
+
+                Thread.sleep(CPU_COLLECT_DELAY)
+            }
+        })
+        thread.contextClassLoader = javaClass.classLoader
+        thread.isDaemon = true
+        thread.start()
+
+        val result = block()
+        running = false
+        thread.join(CPU_COLLECT_DELAY * 2)
+        val usages = cpuUsages
+        println(usages)
+        return CpuUsageWithValue(
+            result,
+            usages.average(),
+            usages.count { it > CPU_FULL_LOAD_THRESHOLD }.toDouble() / cpuUsages.size
+        )
+    }
+
+    private fun measureCompress(
         destPath: Path,
         dataset: Dataset,
         options: List<String>,
-    ): Duration {
-        val encodingTime = measureTime {
-            translate(dataset, destPath, options)?.Close()
+    ): CpuUsageWithValue<Duration> {
+        return measureCpuUsage {
+            measureTime {
+                translate(dataset, destPath, options)?.Close()
+            }
         }
-        return encodingTime
     }
 
-    private fun measureDecompressTime(destPath: Path, returnPath: Path): Duration {
+    private fun measureDecompressTime(destPath: Path, returnPath: Path): CpuUsageWithValue<Duration> {
         val compressedDataset = gdal.Open(destPath.toString())
-        val decompressingTime = try {
-            measureTime {
-                createNonCompressGTiff(compressedDataset, resultPath = returnPath)?.Close()
+        return try {
+            measureCpuUsage {
+                measureTime {
+                    createNonCompressGTiff(compressedDataset, resultPath = returnPath)?.Close()
+                }
             }
         } finally {
             compressedDataset.Close()
         }
-        return decompressingTime
     }
 }
