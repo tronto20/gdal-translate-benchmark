@@ -16,7 +16,7 @@ You can run the benchmark tool either with Gradle or Docker.
   docker run --rm \
   -v data:/workspace/data \
   -v result:/workspace/results \
-  ghcr.io/tronto20/gdal-translate-benchmark:0.1.3
+  ghcr.io/tronto20/gdal-translate-benchmark:0.1.5
 ```
 
 ## results
@@ -32,7 +32,7 @@ The benchmark tool stores the results in the `results` directory.
 
 These parameters can be used in the format `--${parameterName}=${value}`
 
-- Example: `docker run --rm ghcr.io/tronto20/gdal-translate-benchmark:0.1.0 --benchmark.compressions=deflate,lzw`
+- Example: `docker run --rm ghcr.io/tronto20/gdal-translate-benchmark:0.1.5 --benchmark.compressions=deflate,lzw`
 
 | Parameter               | Description                                                       | Default Value           |
 |-------------------------|-------------------------------------------------------------------|-------------------------|
@@ -55,6 +55,9 @@ separator:
 - **L(n)**: Level creation option
     - Example: `deflate-L1` sets deflate with Level=1
     - Example: `lzw-L9` sets lzw with Level=9
+
+- **Q(n)**: Quality creation option
+    - Example: `webp-q100` sets webp with Quality=100
 - Example : `deflate-p2-l1` sets deflate with predictor=2 and Level=1
 
 ## Build & Run Guide

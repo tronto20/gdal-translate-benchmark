@@ -149,6 +149,10 @@ class RecordService(
                     options.add("LEVEL=$level")
                 }
             }
+            if (it.startsWith("Q")) {
+                options.add("-co")
+                options.add("QUALITY=${it.drop(1)}")
+            }
         }
         return options
     }
